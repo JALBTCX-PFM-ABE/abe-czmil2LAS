@@ -1,0 +1,14 @@
+INPUT(
+./build/Release/QT4.8.6_PFM-Windows/czmil2LAS.o
+./build/Release/QT4.8.6_PFM-Windows/fileInputPage.o
+./build/Release/QT4.8.6_PFM-Windows/main.o
+./build/Release/QT4.8.6_PFM-Windows/optionPage.o
+./build/Release/QT4.8.6_PFM-Windows/qrc_icons.o
+./build/Release/QT4.8.6_PFM-Windows/runPage.o
+./build/Release/QT4.8.6_PFM-Windows/startPage.o
+./build/Release/QT4.8.6_PFM-Windows/moc_czmil2LAS.o
+./build/Release/QT4.8.6_PFM-Windows/moc_fileInputPage.o
+./build/Release/QT4.8.6_PFM-Windows/moc_optionPage.o
+./build/Release/QT4.8.6_PFM-Windows/moc_runPage.o
+./build/Release/QT4.8.6_PFM-Windows/moc_startPage.o
+);
