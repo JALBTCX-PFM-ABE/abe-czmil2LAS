@@ -37,7 +37,7 @@
 
 #ifndef VERSION
 
-#define     VERSION     "PFM Software - czmil2LAS V3.22 - 08/07/19"
+#define     VERSION     "PFM Software - czmil2LAS V3.24 - 09/12/19"
 
 #endif
 
@@ -419,5 +419,20 @@
 
     - Now that get_area_mbr supports shape files we don't need to handle it differently from the other
       area file types.
+
+
+    Version 3.23
+    Jan C. Depner (PFM Software)
+    08/28/19
+
+    - Added extra bytes VLR for "reflectance" as defined in "LAS Domain Profile Description: Topo-Bathy Lidar",
+      July 17, 2013.
+
+
+    Version 3.24
+    Jan C. Depner (PFM Software)
+    09/12/19
+
+    - I was using the wrong OGC transform type for WKT, fixed it.
 
 </pre>*/

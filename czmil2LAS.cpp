@@ -244,8 +244,10 @@ czmil2LAS::slotCustomButtonClicked (int id __attribute__ ((unused)))
   CZMIL_CPF_Header                cpf_header;
   CZMIL_CPF_Data                  cpf;
   int32_t                         cpf_hnd;
+  CZMIL_CWF_Header                cwf_header;
+  int32_t                         cwf_hnd;
   char                            string[1024], area_file[512];
-  int32_t                         year, month, jday, hour, minute, mday;
+  int32_t                         year, month, jday, hour, minute, mday, attribute_reflectance = -1, attribute_start_reflectance = 0;
   float                           second;
   double                          min_x[9], max_x[9], min_y[9], max_y[9], min_z[9], max_z[9], time_offset = 0.0;
   time_t                          gps_tv_sec;
@@ -351,6 +353,60 @@ czmil2LAS::slotCustomButtonClicked (int id __attribute__ ((unused)))
       progress.list->scrollToItem (stat);
 
 
+      //  More fun stuff... we have to determine the HydroFusion version from the CWF file so we can label the extra bytes reflectance
+      //  as either reflectance or pseudo-reflectance.  Failing that, we will check for the creation date of the CPF file being later
+      //  than the (approximate) time that HF version 2.0.2 was released.  I doubt that it will come to that but you never know.
+
+      char reflectance_name[32];
+      strcpy (reflectance_name, "reflectance");
+
+      char cwf[1024];
+      strcpy (cwf, string);
+      sprintf (&cwf[strlen (cwf) - 4], ".cwf");
+
+      if ((cwf_hnd = czmil_open_cwf_file (cwf, &cwf_header, CZMIL_READONLY_SEQUENTIAL)) < 0)
+        {
+          //  September 5, 2019
+
+          if (cpf_header.creation_timestamp < 1562630400000000) strcpy (reflectance_name, "pseudo-reflectance");
+        }
+      else
+        {
+          czmil_close_cwf_file (cwf_hnd);
+
+
+          //  Check for version 2.0.2
+
+          QString hf = QString (cwf_header.creation_software);
+          if (hf.contains ("HydroFusion V"))
+            {
+              QString hfv = hf.simplified ().section (' ', 1, 1).remove ('V');
+
+              int32_t mj = hfv.section ('.', 0, 0).toInt ();
+              int32_t mn = hfv.section ('.', 1, 1).toInt ();
+              int32_t p = hfv.section ('.', 2, 2).toInt ();
+
+              if (mj < 2)
+                {
+                  strcpy (reflectance_name, "pseudo-reflectance");
+                }
+              else
+                {
+                  if (mj == 2 && mn == 0 && p < 2)
+                    {
+                      strcpy (reflectance_name, "pseudo-reflectance");
+                    }
+                }
+            }
+          else
+            {
+              //  September 5, 2019
+
+              if (cpf_header.creation_timestamp < 1562630400000000) strcpy (reflectance_name, "pseudo-reflectance");
+            }
+        }
+
+
       //  Try to open the input file.
 
       if ((cpf_hnd = czmil_open_cpf_file (string, &cpf_header, CZMIL_READONLY_SEQUENTIAL)) < 0)
@@ -379,7 +435,6 @@ czmil2LAS::slotCustomButtonClicked (int id __attribute__ ((unused)))
           if (start_sec > 1341100799) time_offset -= 1.0;
           if (start_sec > 1435708799) time_offset -= 1.0;
           */
-
 
           progress.fbar->reset ();
 
@@ -445,8 +500,40 @@ czmil2LAS::slotCustomButtonClicked (int id __attribute__ ((unused)))
 
                       lasheader[j].number_of_variable_length_records = 1;
 
-                      strcpy (cpf_header.wkt, cpf_header.wkt);
-                      lasheader[j].set_geo_wkt_ogc_math (strlen (cpf_header.wkt), cpf_header.wkt);
+                      lasheader[j].set_geo_ogc_wkt (strlen (cpf_header.wkt), cpf_header.wkt);
+
+
+                      //  Try to add the reflectance extra bytes VLR
+
+                      try
+                        {
+                          //  Note that Martin zero bases the data type (as opposed to the LAS v1.4 spec) so that data type 3 (in the
+                          //  following call) is stored as data type 4.
+
+                          LASattribute attribute (3, reflectance_name, "Radiometric calibration output");
+                          attribute.set_scale (0.01);
+                          attribute.set_offset (0.0);
+                          attribute.set_no_data (0xFFFF);
+                          attribute.reserved[0] = 100;
+                          attribute.reserved[1] = 0;
+                          attribute.options = 9; // 0b1001 = refraction has been applied.
+                          attribute_reflectance = lasheader[j].add_attribute (attribute);
+                        }
+                      catch(...)
+                        {
+                          fprintf (stderr, "ERROR: initializing reflectance attribute\n");
+                          exit (-1);
+                        }
+
+
+                      //  Create the extra bytes VLR
+
+                      lasheader[j].update_extra_bytes_vlr ();
+
+
+                      //  Get index for fast extra bytes access
+
+                      attribute_start_reflectance = lasheader[j].get_attribute_start (attribute_reflectance);
                     }
                   else
                     {
@@ -607,7 +694,7 @@ czmil2LAS::slotCustomButtonClicked (int id __attribute__ ((unused)))
                       if (options.las_v14)
                         {
                           lasheader[j].point_data_format = 7;
-                          lasheader[j].point_data_record_length = 36;
+                          lasheader[j].point_data_record_length = 38;//36;
                         }
                       else
                         {
@@ -620,7 +707,7 @@ czmil2LAS::slotCustomButtonClicked (int id __attribute__ ((unused)))
                       if (options.las_v14)
                         {
                           lasheader[j].point_data_format = 6;
-                          lasheader[j].point_data_record_length = 30;
+                          lasheader[j].point_data_record_length = 32;//30;
                         }
                       else
                         {
@@ -917,6 +1004,14 @@ czmil2LAS::slotCustomButtonClicked (int id __attribute__ ((unused)))
                                                               laspoint[j][n].extended_classification = 40;
                                                             }
                                                         }
+
+
+                                                      //  Add the extra bytes "reflectance".
+
+                                                      int16_t reflectance = 0;
+                                                      if (cpf.channel[j][m].reflectance > 0.0)
+                                                        reflectance = NINT (log10 ((double) cpf.channel[j][m].reflectance) * 100.0);
+                                                      laspoint[j][n].set_attribute (attribute_start_reflectance, reflectance);
                                                     }
                                                   else
                                                     {

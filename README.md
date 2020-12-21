@@ -11,7 +11,10 @@ The PFM ABE suite of tools consists of many individual components that each carr
 ## Version History
 
 |App Version|Release Date|ABE Version|Notes|
-|-------|------------|-----|---|
-|V3.22|08/07/19|V7.0.0.0|  |
+|-------|------------|--------|---|
+|V3.22  |08/07/2019  |V7.0.0.0|   |
+|V3.33  |08/28/2019    |??      |JCD - Added extra bytes VLR for "reflectance" as defined in "LAS Domain Profile Description: Topo-Bathy Lidar"|
+|V3.34  |09/12/2019  |V7.0.0.1|JCD - I was using the wrong OGC transform type for WKT, fixed it.|
+
 
 ## Notes
